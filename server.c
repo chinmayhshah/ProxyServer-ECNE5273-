@@ -26,17 +26,17 @@ Last Edit : 10/10
 //#include <time.h>
 
 /* You will have to modify the program below */
-#define LISTENQ 1000 
+#define LISTENQ 2000 
 #define SERV_PORT 3000
 
 #define MAXCOLSIZE 100
 #define HTTPREQ 	30
 
 
-#define MAXBUFSIZE 60000
-#define MAXPACKSIZE 1000
-#define ERRORMSGSIZE 1000
-#define MAXCOMMANDSIZE 100
+#define MAXBUFSIZE 600000
+#define MAXPACKSIZE 10000
+#define ERRORMSGSIZE 10000
+#define MAXCOMMANDSIZE 1000
 #define MAXCONTENTSUPPORT 15
 
 
@@ -415,36 +415,28 @@ int error_response(char *err_message,char Http_URL[MAXCOLSIZE],int sock,char Htt
 
 struct HttpFormats_struct host;
 
-/*******************************
+/***************************************************************************
 *Service responsible for request to external service (acting as a client )
 *
 *
 *GET www.google.com HTTP/1.0
-*
-*construct into 
---
-PA#2$ nc -l 8000
-GET http://www.yahoo.com/ HTTP/1.1
-Host: www.yahoo.com
-Proxy-Connection: keep-alive
-Accept:
-text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,
-Ref : https://moodle.cs.colorado.edu/pluginfile.php/26442/mod_resource/content/1/Programming%20Assignment%204.pdf
-**************************/
-ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
+****************************************************************************/
+ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessage,int clientSock){
 
 	int socketproxyClient=-1;
 	ErrorCodes_TypeDef connect_sucess;
 	ssize_t nbytes=0;
-	char messagefromServer[MAXPACKSIZE];
+	char messagefromServer[MAXBUFSIZE];
 	char requesttoHost[MAXBUFSIZE];
 	char responsefromHost[MAXBUFSIZE];
 	struct hostent* targethost;
 	ErrorCodes_TypeDef portFound;
 	char *retchr=NULL,*hosttemp=NULL; //return for character search 
 	char *temp1=NULL;
-	char temp2[MAXCOLSIZE],temp[MAXCOLSIZE];
+	char temp2[MAXCOLSIZE],temp[MAXCOLSIZE],urltemp[MAXCOLSIZE];
 	char searchchar;
+	struct in_addr **addr_list;
+	int i=0;
 
 	if ((socketproxyClient= socket(AF_INET , SOCK_STREAM , 0))<0){
 	    printf("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
@@ -453,7 +445,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
 		return STATUS_ERROR;
 	}
     //}
-    DEBUG_PRINT("Message =>%s ,SOCKet=>%d \n",requestMessage  ,socketproxyClient);
+    DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
 	
 
 	DEBUG_PRINT("Split the HOST  %s",host.HttpURLValue);
@@ -481,6 +473,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
 	}
 	
 	//split the url 
+	strcpy(urltemp,host.HttpURLValue);//backup the url 
 	temp1=strtok(host.HttpURLValue,"//");
 	if(portFound!=STATUS_OK){
 		host.port = 80;
@@ -493,10 +486,19 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
 	}
 	sprintf(temp2,"%s",temp1);
 	DEBUG_PRINT("host = %s",temp2);
-	targethost = gethostbyname(temp2);
-	//DEBUG_PRINT("Target host = %s",targethost);
+	if((targethost = gethostbyname(temp2))==NULL){
+		perror(temp2);
+		DEBUG_PRINT("Cannot get a host address %s ",temp2);
+		//exit(-1);//Return error
+		return STATUS_ERROR_REQUEST;
 
-	//host=gethostbyname(t2);
+	}
+	DEBUG_PRINT("Official Name %s",targethost->h_name);
+	addr_list = (struct in_addr **)targethost->h_addr_list;
+    for(i = 0; addr_list[i] != NULL; i++) {
+        DEBUG_PRINT("%s ", inet_ntoa(*addr_list[i]));
+    }
+
 	if(portFound == STATUS_OK){
 		temp1= strtok(NULL,"/");
 		DEBUG_PRINT("Port %s",temp1);
@@ -522,19 +524,11 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
 
 
 	ProxyClient.sin_family =AF_INET;
-    //Create a socket between Proxy server and HOST 
-    //host.port  = 80;
-	ProxyClient.sin_family = AF_INET;
-    DEBUG_PRINT("Connect the socket2");
-    //ProxyClient.sin_port = htons(atoi("20002"));        		//htons() sets the port # to network byte order
-    ProxyClient.sin_port = htons(host.port);        		//htons() sets the port # to network byte order
-   	DEBUG_PRINT("Connect the socket3");
-
-   	bcopy((char*)targethost->h_addr,(char*)&ProxyClient.sin_addr.s_addr,targethost->h_length);
-
-	//ProxyClient.sin_addr.s_addr = inet_addr("127.0.0.1");
-    
-    DEBUG_PRINT("Connect the socket1");
+    //Create a socket between Proxy server and HOST    
+    ProxyClient.sin_port = htons(host.port);        		//htons() sets the port # to network byte order	
+   	//bcopy((char*)targethost->h_addr,(char*)&ProxyClient.sin_addr.s_addr,targethost->h_length);
+   	memcpy(&ProxyClient.sin_addr.s_addr,targethost->h_addr,targethost->h_length);
+   	//DEBUG_PRINT("Proxy IP %s", inet_ntoa((ProxyClient.sin_addr.s_addr)));    
     //Connect to remote server
 	if (connect(socketproxyClient , (struct sockaddr *)&ProxyClient , sizeof(ProxyClient)) < 0){
         perror("\nConnect failed. Error");
@@ -545,36 +539,46 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
     else {//socket connection is successful 
     		connect_sucess=STATUS_OK;
     		// form the reuest depending on url dound or not 
-    		// DEBUG_PRINT("Form the request temp => %s , temp1 => %s ,temp2=> %s",temp,temp1,temp2);
-    		DEBUG_PRINT("Here1");
     		//bzero(requesttoHost,sizeof(requesttoHost));
-			if(temp1!=NULL)
+			//if(temp1!=NULL)
 				//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
-				sprintf(requesttoHost,"%s\r\nHost: %s\r\nConnection: close\r\n\r\n",requestMessage,temp1);
-			else
-				sprintf(requesttoHost,"%s\r\nHost: %s\r\nConnection: close\r\n\r\n",requestMessage,temp1);
+			sprintf(requestMessage,"%s %s %sHost: %s\r\nConnection: close\r\n\r\n",host.HttpMethodVaue,urltemp,host.HttpVersionValue,temp1);
+			//else
+			//	sprintf(requesttoHost,"%s\r\nHost: %s\r\nProxy-Connection: keep-alive\r\n\r\n",requestMessage,temp1);
 				//sprintf(requesttoHost,"GET / %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp,temp2);
 			//strcat(requesttoHost,'\0');
-			
-			DEBUG_PRINT("Request to HOST %s",requesttoHost);	//
+			//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
+			strcpy(requesttoHost,requestMessage);
+			printf("Request send to HOST\n\r%s",requesttoHost);	//
 
 
 	    	if(write(socketproxyClient,requesttoHost,sizeof(requesttoHost))<0){//check if request is send continously 
-	    		perror("Write Socket");
+	    		perror("Write Target HOst Socket");
 	    		return STATUS_ERROR_SOCKET_NOT_WRITTEN;
 	    	}
 	    	else{
 		    		DEBUG_PRINT("Wait for reply");
-		    		bzero((char*)responsefromHost,sizeof(responsefromHost));
+		    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
 		    		do
 					{
-						bzero((char*)messagefromServer,sizeof(messagefromServer));
-						if(nbytes=recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)<0){//recv from server and check for non-blocking 
+						memset((char*)messagefromServer,0,sizeof(messagefromServer));
+						if(nbytes=recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)>0){//recv from server and check for non-blocking 
 							//send(newsockfd,buffer,n,0);//send to client of proxy server when completed 
-							strcat(responsefromHost,messagefromServer);
+							write(clientSock,messagefromServer,sizeof(messagefromServer));
+							DEBUG_PRINT("Sending to client @%d",clientSock);	
+							//strcat(responsefromHost,messagefromServer);
+							//DEBUG_PRINT("Message from Target host %s",messagefromServer);	
+							
 						}
-						DEBUG_PRINT("Message from server %s",messagefromServer);
+
 					}while(nbytes>0);
+
+					//DEBUG_PRINT("Complete message from Target Hosts  \n\r%s",responsefromHost);
+					
+					//if(responsefromHost!=NULL){
+					//	memcpy(responseMessage,responsefromHost,sizeof(responsefromHost));
+					//}
+						
 			}
 	    
 	    	/*
@@ -586,7 +590,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[]){
 				DEBUG_PRINT("Message to client %s ",messagefromServer);
 			}
 			*/						
-			DEBUG_PRINT("After message from client  %s",responsefromHost);
+			
 
 		}
 	shutdown(socketproxyClient,SHUT_RDWR);
@@ -898,7 +902,8 @@ void *client_connections(void *client_sock_id)
 	char message_bkp[MAXPACKSIZE];//store message from client 
 	char (*split_attr)[MAXCOLSIZE];
 	DEBUG_PRINT("passed Client connection %d\n",(int)thread_sock);
-
+	char messagetoClient[MAXBUFSIZE];
+	ErrorCodes_TypeDef errorcode=STATUS_OK;
 	
 
 	
@@ -907,7 +912,7 @@ void *client_connections(void *client_sock_id)
 		if((read_bytes =recv(thread_sock,message_client,MAXPACKSIZE,0))>0){
 
 			//printf("request from client %s\n",message_client );
-			strcpy(message_bkp,message_client);//backup of orginal message 
+			memcpy(message_bkp,message_client,sizeof(message_client));//backup of orginal message 
 			DEBUG_PRINT("Message length%d\n",(int)strlen(message_client) );
 			DEBUG_PRINT("Message %s\n",message_client);
 			
@@ -942,28 +947,39 @@ void *client_connections(void *client_sock_id)
 				if(checkRequest(split_attr,thread_sock,message_bkp)!=STATUS_OK){
 					DEBUG_PRINT("Request unsuccessful \n");
 				}
-				DEBUG_PRINT("Request Checked Completely => %s\n",message_bkp);
-
-
-				//Proxy 
-				ProxyClientService(message_bkp);
-
-
-
-
-
-
-
-
-
-
+				else{
+					DEBUG_PRINT("Request successfully => %s\n",message_bkp);
+					//Proxy 
+					//Processing the inout from client  to 
+					//if(messagetoClient=(char*)calloc(MAXBUFSIZE,sizeof(char))<0){
+					//	printf("Cant alloacte memory ");
+					//}
+					//else{
+						// check 
+						if (ProxyClientService(message_bkp,&messagetoClient,thread_sock)==STATUS_OK){
 							
+							DEBUG_PRINT("Write back to client %s",messagetoClient);
+							//write(thread_sock,messagetoClient,strlen(messagetoClient));
+						}
+						else{
+							printf("Issue request to Server");
+						}	
+						
+					//}
+				}
+						
 				//free alloaction of memory 
 				for(i=0;i<total_attr_commands;i++){
 					free((*split_attr)[i]);
 				}
 				
 				free(split_attr);//clear  the request recieved 
+				/*
+				if(messagetoClient){
+					DEBUG_PRINT("Clear  the memory");
+					free(messagetoClient);
+				}
+				*/
 						
 			}
 			else 
@@ -973,26 +989,14 @@ void *client_connections(void *client_sock_id)
 					exit(-1);
 			}		
 			
-			//Processing the inout from client  to 
-
-
-
-
 			//check for resources in cache (hashing )
-
-
-
-
-
 		}
 		if (read_bytes < 0){
 			perror("recv from client failed ");
 			return NULL;
 
 		}
-
-
-		
+	
 	DEBUG_PRINT("Completed \n");
 	//Closing SOCKET
     shutdown (thread_sock, SHUT_RDWR);         //All further send and recieve operations are DISABLED...
