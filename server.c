@@ -413,7 +413,7 @@ int error_response(char *err_message,char Http_URL[MAXCOLSIZE],int sock,char Htt
 	return 0;
 }
 
-struct HttpFormats_struct host;
+
 
 /***************************************************************************
 *Service responsible for request to external service (acting as a client )
@@ -421,7 +421,7 @@ struct HttpFormats_struct host;
 *
 *GET www.google.com HTTP/1.0
 ****************************************************************************/
-ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessage,int clientSock){
+ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessage,int clientSock,struct HttpFormats_struct *host){
 
 	int socketproxyClient=-1;
 	ErrorCodes_TypeDef connect_sucess;
@@ -448,12 +448,12 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
     DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
 	
 
-	DEBUG_PRINT("Split the HOST  %s",host.HttpURLValue);
+	DEBUG_PRINT("Split the HOST  %s",host->HttpURLValue);
 	//Check the url ,if port avaialble and  split in to http <host> <port>
 
 	//Back up of intial host url
-	strcpy(temp,host.HttpURLValue);
-	strcpy(temp2,host.HttpURLValue);
+	strcpy(temp,host->HttpURLValue);
+	strcpy(temp2,host->HttpURLValue);
 
 	DEBUG_PRINT("temp => %s , temp2 => %s",temp,temp2);
 
@@ -461,7 +461,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	portFound=STATUS_OK;
 	searchchar = ':';
 
-	retchr =strrchr(&host.HttpURLValue[6],searchchar);
+	retchr =strrchr(&host->HttpURLValue[6],searchchar);
 	if(retchr){
 		DEBUG_PRINT("Found %s",retchr);
 		portFound=STATUS_OK;
@@ -473,10 +473,10 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	}
 	
 	//split the url 
-	strcpy(urltemp,host.HttpURLValue);//backup the url 
-	temp1=strtok(host.HttpURLValue,"//");
+	strcpy(urltemp,host->HttpURLValue);//backup the url 
+	temp1=strtok(host->HttpURLValue,"//");
 	if(portFound!=STATUS_OK){
-		host.port = 80;
+		host->port = 80;
 		temp1 = strtok(NULL,"/");
 		DEBUG_PRINT("After 1st split Temp 1 %s",temp1);
 	}// 
@@ -502,7 +502,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	if(portFound == STATUS_OK){
 		temp1= strtok(NULL,"/");
 		DEBUG_PRINT("Port %s",temp1);
-		host.port=atoi(temp1);
+		host->port=atoi(temp1);
 	}
 
 	//extract only host name 
@@ -520,16 +520,18 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 		temp1=strtok(NULL,"^]");
 	}
 	*/
-	DEBUG_PRINT	("Path=> %s , PORT => %d",temp1,host.port);
+	DEBUG_PRINT	("Path=> %s , PORT => %d",temp1,host->port);
 
 
 	ProxyClient.sin_family =AF_INET;
     //Create a socket between Proxy server and HOST    
-    ProxyClient.sin_port = htons(host.port);        		//htons() sets the port # to network byte order	
+    ProxyClient.sin_port = htons(host->port);        		//htons() sets the port # to network byte order	
    	//bcopy((char*)targethost->h_addr,(char*)&ProxyClient.sin_addr.s_addr,targethost->h_length);
    	memcpy(&ProxyClient.sin_addr.s_addr,targethost->h_addr,targethost->h_length);
    	//DEBUG_PRINT("Proxy IP %s", inet_ntoa((ProxyClient.sin_addr.s_addr)));    
     //Connect to remote server
+
+    
 	if (connect(socketproxyClient , (struct sockaddr *)&ProxyClient , sizeof(ProxyClient)) < 0){
         perror("\nConnect failed. Error");
         connect_sucess=STATUS_ERROR;
@@ -537,19 +539,28 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
         
     }
     else {//socket connection is successful 
-    		connect_sucess=STATUS_OK;
-    		// form the reuest depending on url dound or not 
-    		//bzero(requesttoHost,sizeof(requesttoHost));
+				
+			connect_sucess=STATUS_OK;
+
+			//clear the buffer
+		    //bzero(requestMessage,sizeof(requestMessage));
+		    bzero(requesttoHost,sizeof(requesttoHost));    		
+		    DEBUG_PRINT("Before Request formed %s ,%s ",requesttoHost,requestMessage);	//
+    		DEBUG_PRINT("Method =>%s",host->HttpMethodVaue);
+    		DEBUG_PRINT("url =>%s",urltemp);
+    		DEBUG_PRINT("version =>%s",host->HttpVersionValue);
+    		DEBUG_PRINT("host =>%s",temp1);
+    		// form the reuest depending on url found or not 
 			//if(temp1!=NULL)
 				//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
-			sprintf(requestMessage,"%s %s %sHost: %s\r\nConnection: close\r\n\r\n",host.HttpMethodVaue,urltemp,host.HttpVersionValue,temp1);
+			sprintf(requesttoHost,"%s %s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",host->HttpMethodVaue,urltemp,host->HttpVersionValue,temp1);
 			//else
 			//	sprintf(requesttoHost,"%s\r\nHost: %s\r\nProxy-Connection: keep-alive\r\n\r\n",requestMessage,temp1);
 				//sprintf(requesttoHost,"GET / %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp,temp2);
 			//strcat(requesttoHost,'\0');
 			//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
-			strcpy(requesttoHost,requestMessage);
-			printf("Request send to HOST\n\r%s",requesttoHost);	//
+			//strncpy(requesttoHost,requestMessage,sizeof(requestMessage));
+			DEBUG_PRINT("Request send to HOST\n\r%s",requesttoHost);	//
 
 
 	    	if(write(socketproxyClient,requesttoHost,sizeof(requesttoHost))<0){//check if request is send continously 
@@ -603,7 +614,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 
 
 
-ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char *request_data){
+ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char *request_data,struct HttpFormats_struct *host){
 
 		char response_message[MAXBUFSIZE];//store message from client// 
 		char path[MAXPACKSIZE],copypath[MAXPACKSIZE];
@@ -616,6 +627,7 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 		char *p=NULL;
 		char *lastptr=NULL;
 		HTTP_METHOD method;
+		
 		// For POST
 		char (*user)[MAXCOMMANDSIZE];
 		char comp[MAXCOMMANDSIZE];
@@ -641,16 +653,19 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 			DEBUG_PRINT("Method isn't implemented");
 			return STATUS_ERROR;
 		}	
-		strcpy(host.HttpMethodVaue,request[HttpMethod]);
+		strcpy(host->HttpMethodVaue,request[HttpMethod]);
 
 		//check for version 
 		if (!strncmp(request[HttpVersion],"HTTP/1.1",8)){//if first element 
 			DEBUG_PRINT("Got HTTP 1.1");
-
+			bzero(request[HttpVersion],16);
+			strncpy(request[HttpVersion],"HTTP/1.1",8);
 			
 		}
 		else if(!strncmp(request[HttpVersion],"HTTP/1.0",8)){
 			DEBUG_PRINT("Got HTTP 1.0");
+			bzero(request[HttpVersion],16);
+			strncpy(request[HttpVersion],"HTTP/1.0",8);
 			
 		}		
 		else
@@ -659,7 +674,7 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 			DEBUG_PRINT("Method isn't implemented");
 			return STATUS_ERROR;
 		}	
-		strcpy(host.HttpVersionValue,request[HttpVersion]);	
+		strcpy(host->HttpVersionValue,request[HttpVersion]);	
 			
 		DEBUG_PRINT("Check for URL");			
 		
@@ -675,7 +690,7 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 		DEBUG_PRINT("Cant find bad chacraters ! Good URL");
 
 		}		
-		strcpy(host.HttpURLValue,request[HttpURL]);	
+		strcpy(host->HttpURLValue,request[HttpURL]);	
 
 		//read the defaut index file 
 		memset(path,0,sizeof(path));
@@ -904,6 +919,9 @@ void *client_connections(void *client_sock_id)
 	DEBUG_PRINT("passed Client connection %d\n",(int)thread_sock);
 	char messagetoClient[MAXBUFSIZE];
 	ErrorCodes_TypeDef errorcode=STATUS_OK;
+	struct HttpFormats_struct temphost;
+	struct HttpFormats_struct *host;
+	host=&temphost;
 	
 
 	
@@ -944,7 +962,7 @@ void *client_connections(void *client_sock_id)
 				}
 				
 				//printf("in client connections%s\n",message_bkp);
-				if(checkRequest(split_attr,thread_sock,message_bkp)!=STATUS_OK){
+				if(checkRequest(split_attr,thread_sock,message_bkp,host)!=STATUS_OK){
 					DEBUG_PRINT("Request unsuccessful \n");
 				}
 				else{
@@ -956,7 +974,7 @@ void *client_connections(void *client_sock_id)
 					//}
 					//else{
 						// check 
-						if (ProxyClientService(message_bkp,&messagetoClient,thread_sock)==STATUS_OK){
+						if (ProxyClientService(message_bkp,&messagetoClient,thread_sock,host)==STATUS_OK){
 							
 							DEBUG_PRINT("Write back to client %s",messagetoClient);
 							//write(thread_sock,messagetoClient,strlen(messagetoClient));
