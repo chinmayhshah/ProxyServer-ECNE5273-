@@ -431,12 +431,16 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	char responsefromHost[MAXBUFSIZE];
 	struct hostent* targethost;
 	ErrorCodes_TypeDef portFound;
-	char *retchr=NULL,*hosttemp=NULL; //return for character search 
-	char *temp1=NULL;
+	char *retchr=NULL,*hosttemp=NULL,*tempretchr=NULL; //return for character search 
+
+	char *temp1=NULL,*temp4=NULL;
+	char temp3[MAXCOLSIZE];
+
 	char temp2[MAXCOLSIZE],temp[MAXCOLSIZE],urltemp[MAXCOLSIZE];
 	char searchchar;
+	char portNumber[MAXBUFSIZE];
 	struct in_addr **addr_list;
-	int i=0;
+	int i=0;size_t n=0;
 
 	if ((socketproxyClient= socket(AF_INET , SOCK_STREAM , 0))<0){
 	    printf("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
@@ -454,6 +458,8 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	//Back up of intial host url
 	strcpy(temp,host->HttpURLValue);
 	strcpy(temp2,host->HttpURLValue);
+	strcpy(temp3,host->HttpURLValue);
+
 
 	DEBUG_PRINT("temp => %s , temp2 => %s",temp,temp2);
 
@@ -479,13 +485,41 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 		host->port = 80;
 		temp1 = strtok(NULL,"/");
 		DEBUG_PRINT("After 1st split Temp 1 %s",temp1);
+		strcpy(temp2,temp1);
 	}// 
 	else{
-		temp1=strtok(NULL,":");
-		DEBUG_PRINT("After 1st split temp 1() %s",temp1);
+		if(portFound == STATUS_OK){
+			DEBUG_PRINT("Here1 %s",temp1);
+		tempretchr=strrchr(urltemp,searchchar);
+
+		if(tempretchr!=NULL){
+				//DEBUG_PRINT("tempretchr(length %d) %s",tempretchr,sizeof(tempretchr));
+				//DEBUG_PRINT("host->HttpURLValue(l %d) %s",host->HttpURLValue,strlen(host->HttpURLValue));
+				//DEBUG_PRINT("temp2 %s",temp2);
+				//DEBUG_PRINT("temp3 %s",temp3);
+				n= tempretchr - urltemp;
+				DEBUG_PRINT("urltemp %s",urltemp);
+				DEBUG_PRINT("tempretchr %s",tempretchr);
+				DEBUG_PRINT("temp2 %s",temp2);
+				DEBUG_PRINT("len %d",n);
+				memset(temp2,0,sizeof(temp2));
+				strncpy(temp2,&temp3[7],(n-7));
+				temp2[n+1]='\0';
+			}
+		
+			DEBUG_PRINT("HOST %s",temp2);
+			strcpy(temp1,temp2);
+		}
+		DEBUG_PRINT("After 1st split temp 1(port found ) %s (len %d)",temp1,strlen(temp1));
+
+		//if(temp3){
+		//	DEBUG_PRINT("Here3");
+		//	strcpy(temp2,temp3);
+		//	DEBUG_PRINT("After 1st split temp 2(port found ) %s (len %d)",temp2,strlen(temp2));
+		//}	
 	}
-	sprintf(temp2,"%s",temp1);
-	DEBUG_PRINT("host = %s",temp2);
+	
+	DEBUG_PRINT("host copy = %s\n",temp2);
 	if((targethost = gethostbyname(temp2))==NULL){
 		perror(temp2);
 		DEBUG_PRINT("Cannot get a host address %s ",temp2);
@@ -500,9 +534,10 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
     }
 
 	if(portFound == STATUS_OK){
-		temp1= strtok(NULL,"/");
-		DEBUG_PRINT("Port %s",temp1);
-		host->port=atoi(temp1);
+		//temp1= strtok(NULL,"/");
+		strncpy(portNumber,&tempretchr[1],(strlen(tempretchr)-1));
+		DEBUG_PRINT("Port %s",portNumber);
+		host->port=atoi(portNumber);
 	}
 
 	//extract only host name 
@@ -966,7 +1001,7 @@ void *client_connections(void *client_sock_id)
 					DEBUG_PRINT("Request unsuccessful \n");
 				}
 				else{
-					DEBUG_PRINT("Request successfully => %s\n",message_bkp);
+					DEBUG_PRINT("Request checked successfully => %s\n",message_bkp);
 					//Proxy 
 					//Processing the inout from client  to 
 					//if(messagetoClient=(char*)calloc(MAXBUFSIZE,sizeof(char))<0){
