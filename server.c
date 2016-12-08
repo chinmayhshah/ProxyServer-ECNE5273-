@@ -146,6 +146,10 @@ struct timeval timeout={0,100000};
 //char * ROOT = "/home/chinmay/Desktop/5273/PA2/www";
 char *configfilename ="ws.conf";
 
+
+//Using Mutex
+pthread_mutex_t thread_mutex;
+
 /*******************************************************************************************
 //Parse a configutation file 
 //
@@ -435,7 +439,12 @@ ErrorCodes_TypeDef MD5String (char *inputString,char *retMD5)
 	char retval[MAXMD5LENGTH+10];
 	//char tempval[MAXMD5LENGTH];
 	DEBUG_PRINT("Input string for MD5SUM %s",inputString);
-	
+
+	bzero(retMD5,sizeof(retMD5));
+	//pthread_mutex_lock(&thread_mutex);//lock mutex	
+	//clear the buffers
+	bzero(runcommand,sizeof(runcommand));
+	bzero(retval,sizeof(retval));
 	sprintf(runcommand,"echo %s|md5sum",inputString);
 	//	system(syscommand);
 	
@@ -458,6 +467,7 @@ ErrorCodes_TypeDef MD5String (char *inputString,char *retMD5)
   pclose(fp);
   
   strncpy(retMD5,retval,(MAXMD5LENGTH));
+  //pthread_mutex_unlock(&thread_mutex);//lock mutex	
   //tempval[33]='\0';
   printf("Temp val %s \n",retMD5);
 
@@ -479,53 +489,33 @@ Library :http://stackoverflow.com/questions/14295980/md5-reference-error
 		gcc client.c -o client -lcrypto -lssl
 
 ***************************************************************************************/
-ErrorCodes_TypeDef MD5Cal(char *filename, char *MD5_result)
+ErrorCodes_TypeDef MD5Cal(char *path, char *buff)
 {
 	//unsigned char *MD5_gen;
-	unsigned char MD5_gen[MD5_DIGEST_LENGTH];
+	unsigned char md5sum[MD5_DIGEST_LENGTH];
 	MD5_CTX mdCont;//
 	int file_bytes;//bytes read
 	unsigned char tempdata[10];//store temp data from file 
 	bzero(tempdata,sizeof(tempdata));
 	unsigned char temp;
 	int i=0;
-	
-	char cwd[1024];
-	//chdir("/path/to/change/directory/to");
-	getcwd(cwd, sizeof(cwd));
-	DEBUG_PRINT("Current working dir: %s\n", cwd);
+	//unsigned char *MD5_gen;
+	MD5_CTX mdContext;
+    MD5_Init(&mdContext);
+    MD5_Update (&mdContext, path, strlen(path));
+    MD5_Final (md5sum, &mdContext);
 
 
-	//DEBUG_PRINT("File To be opened %s",cwd);
-	//sprintf(filename,"%s%s",cwd,filename);
-	//strcat(cwd,"/");
-	//strcat(cwd,filename);
-	DEBUG_PRINT("File=>%s=>",filename);
-	FILE *fdesc = fopen(filename,"rb");
-	if (fdesc ==NULL)
-	{
-		perror(cwd);//if can't open
-		DEBUG_PRINT("File Not Found %s",filename);
-		return STATUS_ERROR_FILE_NOT_FOUND;
-	}
 
-	MD5_Init(&mdCont);//Initialize 
-	
-	while((file_bytes = fread(tempdata,1,10,fdesc)) != 0){//Read data from files
-		MD5_Update(&mdCont,tempdata,file_bytes);//Convert and update context 		
-	}	
-	MD5_Final(MD5_gen,&mdCont);
-	fclose(fdesc);	
+    for (i = 0; i< MD5_DIGEST_LENGTH; i++)
+    {
+        sprintf(&buff[2*i],"%02x", md5sum[i]);
+    }
 
-	for ( i=0;i<MD5_DIGEST_LENGTH;i++) {
-		temp = MD5_gen[i];
-		sprintf(MD5_result,"%x",((MD5_gen[i]&0xF0)>>4) );
-		*MD5_result++;
-		sprintf(MD5_result,"%x",((MD5_gen[i]&0x0F)) );
-		*MD5_result++;
-		
-	   }
-	DEBUG_PRINT("MD5 Gen => MD5 Result %s => %s",MD5_gen,MD5_result);  
+
+    // calculating the hash value of the given file
+    //sprintf(filename,"%s.html",buff);
+    printf("md5sum %s\n", buff);
 	return STATUS_OK;
 }
 
@@ -557,7 +547,7 @@ size_t file_bytes=0;
 //urlMD5 = MD5_temp;
 char fileCheck[MAXCOLSIZE];
 struct tm * info_time;
-
+FILE *cacheFileptr;
 
 DEBUG_PRINT("Input  file %s",inputUrlMD5);
 //calculate file url value to hash value 
@@ -573,7 +563,7 @@ strcpy(fileCheck,inputUrlMD5);
 
 //check file is present in array or directory 
 //present logic to check directory 
-	
+	//if((cacheFileptr=fopen(fileCheck,"r"))==NULL){
 	if((cacheFiledesc=open(fileCheck,O_RDONLY))<0){
 	//if((cacheFileptr=fopen(fileCheck,"r")==NULL)){
 		fileFoundCache = STATUS_ERROR_FILE_NOT_FOUND;
@@ -618,16 +608,18 @@ strcpy(fileCheck,inputUrlMD5);
 	if (fileFoundCache==STATUS_OK){
 		DEBUG_PRINT("Read and Send file to client from Cache");
 		//
-		//while((file_bytes = fread(messagefromCache,1,10,cacheFileptr)) != 0){//Read data from files
-		while((file_bytes= read(cacheFiledesc,messagefromCache,MAXPACKSIZE))>0){
+		//while((file_bytes = fread(&messagefromCache,MAXBUFSIZE,100,cacheFileptr)) >= 0){//Read data from files
+		while((file_bytes= read(cacheFiledesc,messagefromCache,MAXBUFSIZE))>0){
 			write(clientSock,messagefromCache,sizeof(messagefromCache));
-			DEBUG_PRINT("Retreving from Cache ",messagefromCache);
+			DEBUG_PRINT("Retreving from Cache %d",(int)file_bytes);
+			//DEBUG_PRINT("data %s",messagefromCache);
 		}	
-		//DEBUG_PRINT("Compled(MD5=>%s: %s",urlMD5,inputUrl);
+		DEBUG_PRINT("Completed cahce retrival ");
 	}	
 
 	close(cacheFiledesc);
-	DEBUG_PRINT("Here4");
+	//fclose(cacheFileptr);
+	
 	DEBUG_PRINT("Return Value %d",(int)fileFoundCache);
 	return fileFoundCache;
 
@@ -667,6 +659,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	//char MD5_temp[MAXMD5LENGTH];
 	//urlMD5check = &MD5_temp;
 	char tempurlMD5[MAXMD5LENGTH];
+	int cacheWritedesc;
 
 
 
@@ -683,12 +676,16 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 		return STATUS_ERROR;
 	}
     //}
-    DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
+    //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
 	
 
+	//bzero(urlMD5check,sizeof(urlMD5check));
+	//bzero(tempurlMD5,sizeof(tempurlMD5));
+	cacheFound=STATUS_ERROR_SOCKET_NOT_WRITTEN;// other than cache found 	
 	bzero(urlMD5check,sizeof(urlMD5check));
 	bzero(tempurlMD5,sizeof(tempurlMD5));
-	MD5String(host->HttpURLValue,&urlMD5check);
+	//MD5String(host->HttpURLValue,&urlMD5check);
+	MD5Cal(host->HttpURLValue,&urlMD5check);
 
 	printf("MD5  value of url  %s\n",urlMD5check);
 	strcpy(tempurlMD5,urlMD5check);
@@ -850,10 +847,14 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 			    	}
 			    	else{
 				    		DEBUG_PRINT("Wait for reply");
-				    		if ((cacheWrite=fopen(urlMD5check,"wr"))==NULL){//if File  not found 
-								DEBUG_PRINT("Configuration file not found Try Again \n");
-								return STATUS_ERROR_FILE_NOT_FOUND;
+				    		
+				    		//if ((cacheWrite=fopen(urlMD5check,"wr"))==NULL){//if File  not found 
+				    		if ((cacheWritedesc=open(urlMD5check,O_CREAT|O_WRONLY,S_IRUSR | S_IWUSR))<0){//if File  not found 
+								DEBUG_PRINT("Cant open file to cache !! \n");
+								perror(urlMD5check);
+								//return STATUS_ERROR_FILE_NOT_FOUND;
 							}
+							
 							printf("File opened%s\n", urlMD5check);
 				    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
 				    		do
@@ -863,7 +864,8 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 									//send(newsockfd,buffer,n,0);//send to client of proxy server when completed 
 									write(clientSock,messagefromServer,sizeof(messagefromServer));
 									DEBUG_PRINT("Sending to client @%d",clientSock);	
-									fwrite(messagefromServer,MAXPACKSIZE,10,cacheWrite);
+									//fwrite(messagefromServer,MAXPACKSIZE,50,cacheWrite);
+									write(cacheWritedesc,messagefromServer,sizeof(messagefromServer));
 									//strcat(responsefromHost,messagefromServer);
 									//DEBUG_PRINT("Message from Target host %s",messagefromServer);	
 									
@@ -876,9 +878,10 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 							//if(responsefromHost!=NULL){
 							//	memcpy(responseMessage,responsefromHost,sizeof(responsefromHost));
 							//}
-							if(cacheWrite){
-								free(cacheWrite);											
-							}
+							close(cacheWritedesc);
+							//if(cacheWrite){
+							//	free(cacheWrite);											
+							//}
 			    
 						    	/*
 								if(nbytes = recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)<0){//recv from server and check for non-blocking 
@@ -899,7 +902,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	}
 	else
 	{
-		DEBUG_PRINT("File Found in Cache ");
+		DEBUG_PRINT("File Found in Canche ");
 	}		
 }
 
