@@ -577,12 +577,15 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile){
 	size_t len = 0;
 	int read;
     char PrefetchLinkList[MAXFETCHURL][MAXCOLSIZE];
+    char *p;
+    char * temp1;
 
 
     //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
 	printf("Original File Name  %s",OriginalFile);
 	FILE *orgFileptr;
 	char *rethref;
+	char tempurl[MAXCOLSIZE];
 	ErrorCodes_TypeDef fileFoundCache=STATUS_ERROR_FILE_NOT_FOUND;
 
 	if((orgFileptr = fopen(OriginalFile,"r"))==NULL){
@@ -609,7 +612,22 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile){
 				//printf("i %s\n",line);
 				rethref = strstr(line,"<a href=");
 				if (rethref){
-					printf("Found %s",rethref);		
+					//printf("Found ret %s",rethref);	
+
+					bzero(tempurl,sizeof(tempurl));
+					strcpy(tempurl,rethref);
+					printf("\ntempurl %s",tempurl);	
+
+					//strcpy(PrefetchLinkList[presentFetchCount],&tempurl[8]);
+					//if ((p = strrchr(PrefetchLinkList[presentFetchCount], '"')))
+    				//	*(p + 1) = 0; 
+
+    				//strcpy(PrefetchLinkList[presentFetchCount],p);
+    				sscanf(tempurl,"<a href=\"%s.html\"",&PrefetchLinkList[presentFetchCount]);
+    				temp1=strtok(PrefetchLinkList[presentFetchCount],"\"");
+    				printf("\nFound tempurl %s",PrefetchLinkList[presentFetchCount++]);	
+					printf("\nFound temp1 %s",temp1);	
+					
 				}	
 				if (feof(orgFileptr))
 				{
