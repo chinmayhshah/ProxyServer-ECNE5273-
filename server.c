@@ -527,364 +527,6 @@ ErrorCodes_TypeDef MD5Cal(char *path, char *buff)
 
 
 
-
-
-
-
-
-
-
-
-
-#define MAXFETCHURL 100
-// Prefetch the url from files
-ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile){
-
-
-	/*
-	int socketproxyClient=-1;
-	ErrorCodes_TypeDef connect_sucess;
-	ssize_t nbytes=0;
-	char messagefromServer[MAXBUFSIZE];
-	char requesttoHost[MAXBUFSIZE];
-	char responsefromHost[MAXBUFSIZE];
-	struct hostent* targethost;
-	ErrorCodes_TypeDef portFound;
-	ErrorCodes_TypeDef cacheFound=STATUS_OK;
-	char *retchr=NULL,*hosttemp=NULL,*tempretchr=NULL; //return for character search 
-
-	char *temp1=NULL,*temp4=NULL;
-	char temp3[MAXCOLSIZE];
-
-	char temp2[MAXCOLSIZE],temp[MAXCOLSIZE],urltemp[MAXCOLSIZE];
-	char searchchar;
-	char portNumber[MAXBUFSIZE];
-	struct in_addr **addr_list;
-	int i=0;size_t n=0;
-	FILE *cacheWrite;
-	char urlMD5check[MAXMD5LENGTH];
-	//char MD5_temp[MAXMD5LENGTH];
-	//urlMD5check = &MD5_temp;
-	char tempurlMD5[MAXMD5LENGTH];
-	int cacheWritedesc;
-
-	*/
-    //}	
-	int maxfetchCount =0 ;
-	int presentFetchCount =0;
-	char line[MAXCOLSIZE];
-	char *size = NULL;
-	size_t len = 0;
-	int read;
-    char PrefetchLinkList[MAXFETCHURL][MAXCOLSIZE];
-    char *p;
-    char * temp1;
-
-
-    //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
-	printf("Original File Name  %s",OriginalFile);
-	FILE *orgFileptr;
-	char *rethref;
-	char tempurl[MAXCOLSIZE];
-	ErrorCodes_TypeDef fileFoundCache=STATUS_ERROR_FILE_NOT_FOUND;
-
-	if((orgFileptr = fopen(OriginalFile,"r"))==NULL){
-		fileFoundCache = STATUS_ERROR_FILE_NOT_FOUND;
-		printf("File not  found in  %d",(int)fileFoundCache);
-		return fileFoundCache;
-	 }else
-	 {
-	 	//retrieve time from file 
-	 	fileFoundCache = STATUS_OK;
-		printf("File opened prefecth in Cache %d\n",(int)fileFoundCache);
-		
-
-	 }
-	 
-	
-	if(fileFoundCache == STATUS_OK){
-		// Fetch the urls from the File 
-		//maxfetchCount=fileFetch(OriginalFile);
-		printf("Read File %s\n",OriginalFile );
-		 //while((fgets(line,100,orgFileptr))!=NULL && feof(orgFileptr) ){					
-		while((fgets(line,sizeof(line),orgFileptr))!=EOF){					
-			//if(read = getline(&line, &len, orgFileptr)!=NULL){
-				//printf("i %s\n",line);
-				rethref = strstr(line,"<a href=");
-				if (rethref){
-					//printf("Found ret %s",rethref);	
-
-					bzero(tempurl,sizeof(tempurl));
-					strcpy(tempurl,rethref);
-					printf("\ntempurl %s",tempurl);	
-
-					//strcpy(PrefetchLinkList[presentFetchCount],&tempurl[8]);
-					//if ((p = strrchr(PrefetchLinkList[presentFetchCount], '"')))
-    				//	*(p + 1) = 0; 
-
-    				//strcpy(PrefetchLinkList[presentFetchCount],p);
-    				sscanf(tempurl,"<a href=\"%s.html\"",&PrefetchLinkList[presentFetchCount]);
-    				temp1=strtok(PrefetchLinkList[presentFetchCount],"\"");
-    				printf("\nFound tempurl %s",PrefetchLinkList[presentFetchCount++]);	
-					printf("\nFound temp1 %s",temp1);	
-					
-				}	
-				if (feof(orgFileptr))
-				{
-					printf("end of file encountered\n");
-					break;
-				}
-
-		}	
-	} 
-	
-
-	if (size){
-    	free(size);
-	}
-
-	 if(orgFileptr){
-	 	fclose(orgFileptr);
-	 }
-
-
-
-
-
-
-
-	/*
-
-	//bzero(urlMD5check,sizeof(urlMD5check));
-	//bzero(tempurlMD5,sizeof(tempurlMD5));
-	cacheFound=STATUS_ERROR_SOCKET_NOT_WRITTEN;// other than cache found 	
-	bzero(urlMD5check,sizeof(urlMD5check));
-	bzero(tempurlMD5,sizeof(tempurlMD5));
-	//MD5String(host->HttpURLValue,&urlMD5check);
-	MD5Cal(host->HttpURLValue,&urlMD5check);
-
-	DEBUG_PRINT("MD5  value of url  %s\n",urlMD5check);
-	strcpy(tempurlMD5,urlMD5check);
-	DEBUG_PRINT("Copy of MD5  value of url  %s\n",tempurlMD5);
-	//check if file is available in Cache 
-	cacheFound =checkCache(tempurlMD5,clientSock);
-	DEBUG_PRINT("Cache  status %d => %s",(int)cacheFound,urlMD5check);
-
-
-	if(cacheFound != STATUS_OK){
-			//Check the url ,if port avaialble and  split in to http <host> <port>
-			//Back up of intial host url
-			DEBUG_PRINT("Split the HOST  %s",host->HttpURLValue);
-			strcpy(temp,host->HttpURLValue);
-			strcpy(temp2,host->HttpURLValue);
-			strcpy(temp3,host->HttpURLValue);
-
-
-			DEBUG_PRINT("temp => %s , temp2 => %s",temp,temp2);
-
-			//Reinialize portFound
-			portFound=STATUS_OK;
-			searchchar = ':';
-
-			retchr =strrchr(&host->HttpURLValue[6],searchchar);
-			if(retchr){
-				DEBUG_PRINT("Found %s",retchr);
-				portFound=STATUS_OK;
-			}
-			else
-			{
-				portFound = STATUS_ERROR;
-				DEBUG_PRINT("Not found");
-			}
-			
-			//split the url 
-			strcpy(urltemp,host->HttpURLValue);//backup the url 
-			temp1=strtok(host->HttpURLValue,"//");
-			if(portFound!=STATUS_OK){
-				host->port = 80;
-				temp1 = strtok(NULL,"/");
-				DEBUG_PRINT("After 1st split Temp 1 %s",temp1);
-				strcpy(temp2,temp1);
-			}// 
-			else{
-				if(portFound == STATUS_OK){
-					DEBUG_PRINT("Here1 %s",temp1);
-				tempretchr=strrchr(urltemp,searchchar);
-
-				if(tempretchr!=NULL){
-						//DEBUG_PRINT("tempretchr(length %d) %s",tempretchr,sizeof(tempretchr));
-						//DEBUG_PRINT("host->HttpURLValue(l %d) %s",host->HttpURLValue,strlen(host->HttpURLValue));
-						//DEBUG_PRINT("temp2 %s",temp2);
-						//DEBUG_PRINT("temp3 %s",temp3);
-						n= tempretchr - urltemp;
-						DEBUG_PRINT("urltemp %s",urltemp);
-						DEBUG_PRINT("tempretchr %s",tempretchr);
-						DEBUG_PRINT("temp2 %s",temp2);
-						DEBUG_PRINT("len %d",n);
-						memset(temp2,0,sizeof(temp2));
-						strncpy(temp2,&temp3[7],(n-7));
-						temp2[n+1]='\0';
-					}
-				
-					DEBUG_PRINT("HOST %s",temp2);
-					strcpy(temp1,temp2);
-				}
-				DEBUG_PRINT("After 1st split temp 1(port found ) %s (len %d)",temp1,strlen(temp1));
-
-				//if(temp3){
-				//	DEBUG_PRINT("Here3");
-				//	strcpy(temp2,temp3);
-				//	DEBUG_PRINT("After 1st split temp 2(port found ) %s (len %d)",temp2,strlen(temp2));
-				//}	
-			}
-			
-			DEBUG_PRINT("host copy = %s\n",temp2);
-			if((targethost = gethostbyname(temp2))==NULL){
-				perror(temp2);
-				DEBUG_PRINT("Cannot get a host address %s ",temp2);
-				//exit(-1);//Return error
-				return STATUS_ERROR_REQUEST;
-
-			}
-			DEBUG_PRINT("Official Name %s",targethost->h_name);
-			addr_list = (struct in_addr **)targethost->h_addr_list;
-		    for(i = 0; addr_list[i] != NULL; i++) {
-		        DEBUG_PRINT("%s ", inet_ntoa(*addr_list[i]));
-		    }
-
-			if(portFound == STATUS_OK){
-				//temp1= strtok(NULL,"/");
-				strncpy(portNumber,&tempretchr[1],(strlen(tempretchr)-1));
-				DEBUG_PRINT("Port %s",portNumber);
-				host->port=atoi(portNumber);
-			}
-
-			//extract only host name 
-			//eg http://google.com/ to google.com
-
-			strcat(temp,"^]");
-			DEBUG_PRINT("New Temp => %s",temp);
-			//emp1=strtok(temp,"//");	
-			hosttemp = strstr(temp,"//");
-			DEBUG_PRINT("Temp 1 => %s",hosttemp);
-			
-			DEBUG_PRINT("Temp 1 (2) => %s",temp1);
-
-			DEBUG_PRINT	("Path=> %s , PORT => %d",temp1,host->port);
-
-
-			ProxyClient.sin_family =AF_INET;
-		    //Create a socket between Proxy server and HOST    
-		    ProxyClient.sin_port = htons(host->port);        		//htons() sets the port # to network byte order	
-		   	//bcopy((char*)targethost->h_addr,(char*)&ProxyClient.sin_addr.s_addr,targethost->h_length);
-		   	memcpy(&ProxyClient.sin_addr.s_addr,targethost->h_addr,targethost->h_length);
-		   	//DEBUG_PRINT("Proxy IP %s", inet_ntoa((ProxyClient.sin_addr.s_addr)));    
-		    //Connect to remote server
-
-		    
-			if (connect(socketproxyClient , (struct sockaddr *)&ProxyClient , sizeof(ProxyClient)) < 0){
-		        perror("\nConnect failed. Error");
-		        connect_sucess=STATUS_ERROR;
-		        return STATUS_ERROR;
-		        
-		    }
-		    else {//socket connection is successful 
-						
-					connect_sucess=STATUS_OK;
-
-					//clear the buffer
-				    //bzero(requestMessage,sizeof(requestMessage));
-				    bzero(requesttoHost,sizeof(requesttoHost));    		
-				    DEBUG_PRINT("Before Request formed %s ,%s ",requesttoHost,requestMessage);	//
-		    		DEBUG_PRINT("Method =>%s",host->HttpMethodVaue);
-		    		DEBUG_PRINT("url =>%s",urltemp);
-		    		DEBUG_PRINT("version =>%s",host->HttpVersionValue);
-		    		DEBUG_PRINT("host =>%s",temp1);
-		    		// form the reuest depending on url found or not 
-					//if(temp1!=NULL)
-						//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
-					sprintf(requesttoHost,"%s %s %s\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n",host->HttpMethodVaue,urltemp,host->HttpVersionValue,temp1);
-					//else
-					//	sprintf(requesttoHost,"%s\r\nHost: %s\r\nProxy-Connection: keep-alive\r\n\r\n",requestMessage,temp1);
-						//sprintf(requesttoHost,"GET / %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp,temp2);
-					//strcat(requesttoHost,'\0');
-					//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
-					//strncpy(requesttoHost,requestMessage,sizeof(requestMessage));
-					DEBUG_PRINT("Request send to HOST\n\r%s",requesttoHost);	//
-
-
-			    	if(write(socketproxyClient,requesttoHost,sizeof(requesttoHost))<0){//check if request is send continously 
-			    		perror("Write Target HOst Socket");
-			    		return STATUS_ERROR_SOCKET_NOT_WRITTEN;
-			    	}
-			    	else{
-				    		DEBUG_PRINT("Wait for reply");
-				    		
-				    		//if ((cacheWrite=fopen(urlMD5check,"wr"))==NULL){//if File  not found 
-				    		if ((cacheWritedesc=open(urlMD5check,O_CREAT|O_WRONLY,S_IRUSR | S_IWUSR))<0){//if File  not found 
-								DEBUG_PRINT("Cant open file to cache !! \n");
-								perror(urlMD5check);
-								//return STATUS_ERROR_FILE_NOT_FOUND;
-							}
-							
-							printf("File opened%s\n", urlMD5check);
-				    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
-				    		do
-							{
-								memset((char*)messagefromServer,0,sizeof(messagefromServer));
-								if(nbytes=recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)>0){//recv from server and check for non-blocking 
-									//send(newsockfd,buffer,n,0);//send to client of proxy server when completed 
-									write(clientSock,messagefromServer,sizeof(messagefromServer));
-									DEBUG_PRINT("Sending to client @%d",clientSock);	
-									//fwrite(messagefromServer,MAXPACKSIZE,50,cacheWrite);
-									write(cacheWritedesc,messagefromServer,sizeof(messagefromServer));
-									//strcat(responsefromHost,messagefromServer);
-									//DEBUG_PRINT("Message from Target host %s",messagefromServer);	
-									
-								}
-
-							}while(nbytes>0);
-
-							//DEBUG_PRINT("Complete message from Target Hosts  \n\r%s",responsefromHost);
-							
-							//if(responsefromHost!=NULL){
-							//	memcpy(responseMessage,responsefromHost,sizeof(responsefromHost));
-							//}
-							close(cacheWritedesc);
-							//if(cacheWrite){
-							//	free(cacheWrite);											
-							//}
-			    
-						   				
-						}
-					
-
-				}
-			shutdown(socketproxyClient,SHUT_RDWR);
-			close(socketproxyClient);
-			socketproxyClient =-1;	
-	}
-	else
-	{
-		DEBUG_PRINT("File Found in Canche ");
-	}		
-	*/
-}
-
-
-char * urlcheck;
-
-void *prefetch_connections(void *args){
-	//sem_wait(&sem_prefetch);
-	//ProxyPrefetchService(urlcheck);
-
-}
-
-
-
-
-
-
 /*
 i/p :URL 
 
@@ -993,8 +635,10 @@ strcpy(fileCheck,inputUrlMD5);
 	}
 
 	
-	if (fileFoundCache==STATUS_OK){
+	if (fileFoundCache==STATUS_OK && clientSock >0){
 		DEBUG_PRINT("Read and Send file to client from Cache");
+
+
 		//
 		//while((file_bytes = fread(&messagefromCache,MAXBUFSIZE,100,cacheFileptr)) >= 0){//Read data from files
 		while((file_bytes= read(cacheFiledesc,messagefromCache,MAXBUFSIZE))>0){
@@ -1013,6 +657,387 @@ strcpy(fileCheck,inputUrlMD5);
 
 
 }
+
+
+
+
+
+
+
+
+
+
+
+#define MAXFETCHURL 100
+// Prefetch the url from files
+ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_struct *host){
+
+
+	
+	int socketproxyClient=-1;
+	ErrorCodes_TypeDef connect_sucess;
+	ssize_t nbytes=0;
+	char messagefromServer[MAXBUFSIZE];
+	char requesttoHost[MAXBUFSIZE];
+	char responsefromHost[MAXBUFSIZE];
+	struct hostent* targethost;
+	ErrorCodes_TypeDef portFound;
+	ErrorCodes_TypeDef cacheFound=STATUS_OK;
+	char *retchr=NULL,*hosttemp=NULL,*tempretchr=NULL; //return for character search 
+
+	char *temp1=NULL,*temp4=NULL;
+	char temp3[MAXCOLSIZE];
+
+	char temp2[MAXCOLSIZE],temp[MAXCOLSIZE],urltemp[MAXCOLSIZE];
+	char searchchar;
+	char portNumber[MAXBUFSIZE];
+	struct in_addr **addr_list;
+	int i=0;size_t n=0;
+	FILE *cacheWrite;
+	char urlMD5check[MAXMD5LENGTH];
+	//char MD5_temp[MAXMD5LENGTH];
+	//urlMD5check = &MD5_temp;
+	char tempurlMD5[MAXMD5LENGTH];
+	int cacheWritedesc;
+	//HttpFormats_struct host;
+	
+    //}	
+	int maxfetchCount =0 ;
+	int presentFetchCount =0;
+	char line[MAXCOLSIZE];
+	char *size = NULL;
+	size_t len = 0;
+	int read;
+    char PrefetchLinkList[MAXFETCHURL][MAXCOLSIZE];
+    char *p;
+    //char * temp1;
+    int a =0;
+
+
+    //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
+	DEBUG_PRINT("Original File Name  %s",OriginalFile);
+	FILE *orgFileptr;
+	char *rethref;
+	char tempurl[MAXCOLSIZE];
+	ErrorCodes_TypeDef fileFoundCache=STATUS_ERROR_FILE_NOT_FOUND;
+
+
+
+	//Extract  the url from this file 
+	if((orgFileptr = fopen(OriginalFile,"r"))==NULL){
+		fileFoundCache = STATUS_ERROR_FILE_NOT_FOUND;
+		DEBUG_PRINT("File not  found in  %d",(int)fileFoundCache);
+		return fileFoundCache;
+	 }else
+	 {
+	 	//retrieve time from file 
+	 	fileFoundCache = STATUS_OK;
+		DEBUG_PRINT("File opened prefecth in Cache %d\n",(int)fileFoundCache);
+		
+
+	 }
+	 
+	
+	if(fileFoundCache == STATUS_OK){
+		// Fetch the urls from the File 
+		//maxfetchCount=fileFetch(OriginalFile);
+		printf("Read File %s\n",OriginalFile );
+		 //while((fgets(line,100,orgFileptr))!=NULL && feof(orgFileptr) ){					
+		while((fgets(line,sizeof(line),orgFileptr))!=EOF){					
+			//if(read = getline(&line, &len, orgFileptr)!=NULL){
+				//printf("i %s\n",line);
+				rethref = strstr(line,"<a href=");
+				if (rethref){
+					//printf("Found ret %s",rethref);	
+
+					bzero(tempurl,sizeof(tempurl));
+					strcpy(tempurl,rethref);
+					DEBUG_PRINT("\ntempurl %s",tempurl);	
+
+					//strcpy(PrefetchLinkList[presentFetchCount],&tempurl[8]);
+					//if ((p = strrchr(PrefetchLinkList[presentFetchCount], '"')))
+    				//	*(p + 1) = 0; 
+
+    				//strcpy(PrefetchLinkList[presentFetchCount],p);
+    				sscanf(tempurl,"<a href=\"%s.html\"",&PrefetchLinkList[presentFetchCount]);
+    				temp1=strtok(PrefetchLinkList[presentFetchCount],"\"");
+    				printf("\nFound tempurl %s",PrefetchLinkList[presentFetchCount++]);	
+					//DEBUG_PRINT("\nFound temp1 %s",temp1);	
+					
+				}	
+				if (feof(orgFileptr))
+				{
+					DEBUG_PRINT("end of file encountered\n");
+					break;
+				}
+
+		}	
+	} 
+	
+
+	if (size){
+    	free(size);
+	}
+
+	 if(orgFileptr){
+	 	fclose(orgFileptr);
+	 }
+
+
+	printf("Total Files %d\n",presentFetchCount);
+	// End of Extract 
+	//List the urls found 
+	for (a=1;a<presentFetchCount;a++){
+		printf("\nFound %d tempurl %s",a,PrefetchLinkList[a]);	
+	}
+
+	a=0;
+	//clientSock=-1;
+	a=4;
+	//disabled
+	while(++a<=presentFetchCount){
+
+		if (!strncmp(PrefetchLinkList[a],"http",4)){	
+
+				printf("Prefetch url %d %s\n",a,PrefetchLinkList[a]);
+				//bzero(urlMD5check,sizeof(urlMD5check));
+				//bzero(tempurlMD5,sizeof(tempurlMD5));
+				cacheFound=STATUS_ERROR_SOCKET_NOT_WRITTEN;// other than cache found 	
+				bzero(urlMD5check,sizeof(urlMD5check));
+				bzero(tempurlMD5,sizeof(tempurlMD5));
+				//MD5String(host->HttpURLValue,&urlMD5check);
+				MD5Cal(PrefetchLinkList[a],&urlMD5check);
+
+				DEBUG_PRINT("MD5  value of url  %s\n",urlMD5check);
+				strcpy(tempurlMD5,urlMD5check);
+				DEBUG_PRINT("Copy of MD5  value of url  %s\n",tempurlMD5);
+				//check if file is available in Cache 
+				cacheFound =checkCache(tempurlMD5,-1);
+				printf("Cache  status %d => %s\n",(int)cacheFound,urlMD5check);
+
+
+				if(cacheFound != STATUS_OK){
+						//Check the url ,if port avaialble and  split in to http <host> <port>
+						//Back up of intial host url
+						DEBUG_PRINT("Split the HOST  %s",PrefetchLinkList[a]);
+						strcpy(temp,PrefetchLinkList[a]);
+						strcpy(temp2,PrefetchLinkList[a]);
+						strcpy(temp3,PrefetchLinkList[a]);
+
+
+						DEBUG_PRINT("temp => %s , temp2 => %s",temp,temp2);
+
+						//Reinialize portFound
+						portFound=STATUS_OK;
+						searchchar = ':';
+
+						retchr =strrchr(&PrefetchLinkList[a][6],searchchar);
+						if(retchr){
+							DEBUG_PRINT("Found %s",retchr);
+							portFound=STATUS_OK;
+						}
+						else
+						{
+							portFound = STATUS_ERROR;
+							DEBUG_PRINT("Not found");
+						}
+						
+						//split the url 
+						strcpy(urltemp,PrefetchLinkList[a]);//backup the url 
+						temp1=strtok(PrefetchLinkList[a],"//");
+						if(portFound!=STATUS_OK){
+							host->port = 80;
+							temp1 = strtok(NULL,"/");
+							DEBUG_PRINT("After 1st split Temp 1 %s",temp1);
+							strcpy(temp2,temp1);
+						}// 
+						else{
+							if(portFound == STATUS_OK){
+								DEBUG_PRINT("Here1 %s",temp1);
+							tempretchr=strrchr(urltemp,searchchar);
+
+							if(tempretchr!=NULL){
+									//DEBUG_PRINT("tempretchr(length %d) %s",tempretchr,sizeof(tempretchr));
+									//DEBUG_PRINT("host->HttpURLValue(l %d) %s",host->HttpURLValue,strlen(host->HttpURLValue));
+									//DEBUG_PRINT("temp2 %s",temp2);
+									//DEBUG_PRINT("temp3 %s",temp3);
+									n= tempretchr - urltemp;
+									DEBUG_PRINT("urltemp %s",urltemp);
+									DEBUG_PRINT("tempretchr %s",tempretchr);
+									DEBUG_PRINT("temp2 %s",temp2);
+									DEBUG_PRINT("len %d",n);
+									memset(temp2,0,sizeof(temp2));
+									strncpy(temp2,&temp3[7],(n-7));
+									temp2[n+1]='\0';
+								}
+							
+								DEBUG_PRINT("HOST %s",temp2);
+								strcpy(temp1,temp2);
+							}
+							DEBUG_PRINT("After 1st split temp 1(port found ) %s (len %d)",temp1,strlen(temp1));
+
+							//if(temp3){
+							//	DEBUG_PRINT("Here3");
+							//	strcpy(temp2,temp3);
+							//	DEBUG_PRINT("After 1st split temp 2(port found ) %s (len %d)",temp2,strlen(temp2));
+							//}	
+						}
+						
+						DEBUG_PRINT("host copy = %s\n",temp2);
+						if((targethost = gethostbyname(temp2))==NULL){
+							perror(temp2);
+							DEBUG_PRINT("Cannot get a host address %s ",temp2);
+							//exit(-1);//Return error
+							return STATUS_ERROR_REQUEST;
+
+						}
+						printf("Official Name %s",targethost->h_name);
+						addr_list = (struct in_addr **)targethost->h_addr_list;
+					    for(i = 0; addr_list[i] != NULL; i++) {
+					        DEBUG_PRINT("%s ", inet_ntoa(*addr_list[i]));
+					    }
+
+						if(portFound == STATUS_OK){
+							//temp1= strtok(NULL,"/");
+							strncpy(portNumber,&tempretchr[1],(strlen(tempretchr)-1));
+							DEBUG_PRINT("Port %s",portNumber);
+							host->port=atoi(portNumber);
+						}
+
+						//extract only host name 
+						//eg http://google.com/ to google.com
+
+						strcat(temp,"^]");
+						DEBUG_PRINT("New Temp => %s",temp);
+						//emp1=strtok(temp,"//");	
+						hosttemp = strstr(temp,"//");
+						DEBUG_PRINT("Temp 1 => %s",hosttemp);
+						
+						DEBUG_PRINT("Temp 1 (2) => %s",temp1);
+
+						printf("\nPath=> %s , PORT => %d",temp1,host->port);
+
+
+						ProxyClient.sin_family =AF_INET;
+					    //Create a socket between Proxy server and HOST    
+					    ProxyClient.sin_port = htons(host->port);        		//htons() sets the port # to network byte order	
+					   	//bcopy((char*)targethost->h_addr,(char*)&ProxyClient.sin_addr.s_addr,targethost->h_length);
+					   	memcpy(&ProxyClient.sin_addr.s_addr,targethost->h_addr,targethost->h_length);
+					   	//DEBUG_PRINT("Proxy IP %s", inet_ntoa((ProxyClient.sin_addr.s_addr)));    
+					    //Connect to remote server
+
+						if ((socketproxyClient= socket(AF_INET , SOCK_STREAM , 0))<0){
+						printf("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
+						perror("Socket --> Exit ");			        
+						//exit(-1); // what needs to be done ?
+						return STATUS_ERROR;
+						}
+					    
+						if (connect(socketproxyClient , (struct sockaddr *)&ProxyClient , sizeof(ProxyClient)) < 0){
+					        perror("\nConnect failed. Error");
+					        connect_sucess=STATUS_ERROR;
+					        //return STATUS_ERROR;
+					        
+					    }
+					    else {//socket connection is successful 
+									
+								connect_sucess=STATUS_OK;
+
+								//clear the buffer
+							    //bzero(requestMessage,sizeof(requestMessage));
+							    bzero(requesttoHost,sizeof(requesttoHost));    		
+							    printf("Before Request formed %s ,%s ",requesttoHost);//,requestMessage);	//
+					    		printf("Method =>%s",host->HttpMethodVaue);
+					    		printf("url =>%s",urltemp);
+					    		printf("version =>%s",host->HttpVersionValue);
+					    		printf("host =>%s",temp1);
+					    		// form the reuest depending on url found or not 
+								//if(temp1!=NULL)
+									//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
+								sprintf(requesttoHost,"%s %s %s\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n",host->HttpMethodVaue,urltemp,host->HttpVersionValue,temp1);
+								//else
+								//	sprintf(requesttoHost,"%s\r\nHost: %s\r\nProxy-Connection: keep-alive\r\n\r\n",requestMessage,temp1);
+									//sprintf(requesttoHost,"GET / %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp,temp2);
+								//strcat(requesttoHost,'\0');
+								//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
+								//strncpy(requesttoHost,requestMessage,sizeof(requestMessage));
+								printf("Request send to HOST\n\r%s",requesttoHost);	//
+
+
+						    	if(write(socketproxyClient,requesttoHost,sizeof(requesttoHost))<0){//check if request is send continously 
+						    		perror("Write Target HOst Socket");
+						    		return STATUS_ERROR_SOCKET_NOT_WRITTEN;
+						    	}
+						    	else{
+							    		DEBUG_PRINT("Wait for reply");
+							    		
+							    		//if ((cacheWrite=fopen(urlMD5check,"wr"))==NULL){//if File  not found 
+							    		if ((cacheWritedesc=open(urlMD5check,O_CREAT|O_WRONLY,S_IRUSR | S_IWUSR))<0){//if File  not found 
+											DEBUG_PRINT("Cant open file to cache !! \n");
+											perror(urlMD5check);
+											//return STATUS_ERROR_FILE_NOT_FOUND;
+										}
+										
+										printf("File opened%s\n", urlMD5check);
+							    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
+							    		do
+										{
+											memset((char*)messagefromServer,0,sizeof(messagefromServer));
+											if(nbytes=recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)>0){//recv from server and check for non-blocking 
+												//send(newsockfd,buffer,n,0);//send to client of proxy server when completed 
+												//write(clientSock,messagefromServer,sizeof(messagefromServer));
+												//DEBUG_PRINT("Sending to client @%d",clientSock);	
+												//fwrite(messagefromServer,MAXPACKSIZE,50,cacheWrite);
+												write(cacheWritedesc,messagefromServer,sizeof(messagefromServer));
+												//strcat(responsefromHost,messagefromServer);
+												//DEBUG_PRINT("Message from Target host %s",messagefromServer);	
+												
+											}
+
+										}while(nbytes>0);
+
+										//DEBUG_PRINT("Complete message from Target Hosts  \n\r%s",responsefromHost);
+										
+										//if(responsefromHost!=NULL){
+										//	memcpy(responseMessage,responsefromHost,sizeof(responsefromHost));
+										//}
+										close(cacheWritedesc);
+										//if(cacheWrite){
+										//	free(cacheWrite);											
+										//}
+						    
+									   				
+									}
+								
+
+							}
+						shutdown(socketproxyClient,SHUT_RDWR);
+						close(socketproxyClient);
+						socketproxyClient =-1;	
+				}
+				else
+				{
+					DEBUG_PRINT("File Found in Canche ");
+				}
+		}	
+
+		//a++;
+	}			
+	
+}
+
+
+char * urlcheck;
+
+void *prefetch_connections(void *args){
+	//sem_wait(&sem_prefetch);
+	//ProxyPrefetchService(urlcheck);
+
+}
+
+
+
+
 
 
 /***************************************************************************
@@ -1247,7 +1272,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 									DEBUG_PRINT("Sending to client @%d",clientSock);	
 									//fwrite(messagefromServer,MAXPACKSIZE,50,cacheWrite);
 									write(cacheWritedesc,messagefromServer,sizeof(messagefromServer));
-									ProxyPrefetchService(urlMD5check);
+									
 									//strcpy(urlcheck,urlMD5check); 
 									//sem_post(&sem_prefetch);
 
@@ -1257,6 +1282,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 								}
 
 							}while(nbytes>0);
+
 
 							//DEBUG_PRINT("Complete message from Target Hosts  \n\r%s",responsefromHost);
 							
@@ -1277,6 +1303,8 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 									DEBUG_PRINT("Message to client %s ",messagefromServer);
 								}
 								*/						
+								//call prefetch routine 
+							//ProxyPrefetchService(urlMD5check,host);
 						}
 					
 
