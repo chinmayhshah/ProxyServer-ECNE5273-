@@ -34,7 +34,7 @@ Last Edit : 10/10
 #define HTTPREQ 	30
 
 
-#define MAXBUFSIZE 600000
+#define MAXBUFSIZE 500000
 #define MAXPACKSIZE 10000
 #define ERRORMSGSIZE 10000
 #define MAXCOMMANDSIZE 1000
@@ -189,7 +189,7 @@ int config_parse(char Filename[MAXCOLSIZE]){
 	//Read File 
 	//FILE *filetoread = fopen(Filename,"r");
 	if ((filepointer=fopen(Filename,"r"))==NULL){//if File  not found 
-			printf("Configuration file not found Try Again \n");
+			DEBUG_PRINT("Configuration file not found Try Again \n");
 			//perror("File not Found");
 			exit(-1);
 		}
@@ -457,7 +457,7 @@ ErrorCodes_TypeDef MD5String (char *inputString,char *retMD5)
 	DEBUG_PRINT("sys command %s",runcommand);
     /* Open the command for reading. */
     fp = popen(runcommand, "r");
-    printf("\n");
+    DEBUG_PRINT("\n");
     if (fp == NULL) {
      	DEBUG_PRINT("Failed to run command\n" );
      	return STATUS_ERROR;
@@ -465,7 +465,7 @@ ErrorCodes_TypeDef MD5String (char *inputString,char *retMD5)
 
   /* Read the output a line at a time - output it. */
   while (fgets(retval, sizeof(retval)-1, fp) != NULL) {
-    printf("Return value %s\n", retval);
+    DEBUG_PRINT("Return value %s\n", retval);
     //strcpy(returnString,path);
   }
 
@@ -475,7 +475,7 @@ ErrorCodes_TypeDef MD5String (char *inputString,char *retMD5)
   strncpy(retMD5,retval,(MAXMD5LENGTH));
   //pthread_mutex_unlock(&thread_mutex);//lock mutex	
   //tempval[33]='\0';
-  printf("Temp val %s \n",retMD5);
+  DEBUG_PRINT("Temp val %s \n",retMD5);
 
   return STATUS_OK;
 
@@ -521,7 +521,7 @@ ErrorCodes_TypeDef MD5Cal(char *path, char *buff)
 
     // calculating the hash value of the given file
     //sprintf(filename,"%s.html",buff);
-    printf("md5sum %s\n", buff);
+    DEBUG_PRINT("md5sum %s\n", buff);
 	return STATUS_OK;
 }
 
@@ -618,10 +618,10 @@ strcpy(fileCheck,inputUrlMD5);
 			diff_t= difftime(time1,time2);
 			
 			//printf("Readable Time from file => %s",asctime(time_file));
-			printf("New Diff in time %f secs\n",diff_t);
+			DEBUG_PRINT("New Diff in time %f secs\n",diff_t);
 			//if(diff_t > MAX_TIME_OUT ){	
 			if(diff_t > timeoutval){
-				printf("New File from host required");
+				DEBUG_PRINT("New File from host required");
 				fileFoundCache = STATUS_ERROR_FILE_NOT_FOUND;
 				return fileFoundCache;
 			}
@@ -670,14 +670,15 @@ strcpy(fileCheck,inputUrlMD5);
 
 #define MAXFETCHURL 100
 // Prefetch the url from files
-ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_struct *host){
+ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_struct *host,char *relativeurl){
 
 
 	
 	int socketproxyClient=-1;
 	ErrorCodes_TypeDef connect_sucess;
 	ssize_t nbytes=0;
-	char messagefromServer[MAXBUFSIZE];
+	char tempmessagefromServer[MAXBUFSIZE];
+	char * messagefromServer;
 	char requesttoHost[MAXBUFSIZE];
 	char responsefromHost[MAXBUFSIZE];
 	struct hostent* targethost;
@@ -709,16 +710,20 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 	size_t len = 0;
 	int read;
     char PrefetchLinkList[MAXFETCHURL][MAXCOLSIZE];
+    char urlLink[MAXCOLSIZE];
     char *p;
     //char * temp1;
     int a =0;
 
+	printf("prefetch called");
+    messagefromServer = &tempmessagefromServer;
 
     //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
 	DEBUG_PRINT("Original File Name  %s",OriginalFile);
 	FILE *orgFileptr;
 	char *rethref;
 	char tempurl[MAXCOLSIZE];
+	ErrorCodes_TypeDef UrlOK=STATUS_ERROR;
 	ErrorCodes_TypeDef fileFoundCache=STATUS_ERROR_FILE_NOT_FOUND;
 
 
@@ -741,7 +746,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 	if(fileFoundCache == STATUS_OK){
 		// Fetch the urls from the File 
 		//maxfetchCount=fileFetch(OriginalFile);
-		printf("Read File %s\n",OriginalFile );
+		DEBUG_PRINT("Read File %s\n",OriginalFile );
 		 //while((fgets(line,100,orgFileptr))!=NULL && feof(orgFileptr) ){					
 		while((fgets(line,sizeof(line),orgFileptr))!=EOF){					
 			//if(read = getline(&line, &len, orgFileptr)!=NULL){
@@ -784,7 +789,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 	 }
 
 
-	printf("Total Files %d\n",presentFetchCount);
+	printf("Total URL FOUND %d\n",presentFetchCount);
 	// End of Extract 
 	//List the urls found 
 	for (a=1;a<presentFetchCount;a++){
@@ -793,12 +798,29 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 
 	a=0;
 	//clientSock=-1;
-	a=4;
 	//disabled
 	while(++a<=presentFetchCount){
 
-		if (!strncmp(PrefetchLinkList[a],"http",4)){	
+		if (!strncmp(PrefetchLinkList[a],"http:",5)){	
+			UrlOK = STATUS_OK;
+		}
+		else if (!strncmp(PrefetchLinkList[a],"/",1))
+		{
+			//append the host initially 
+			strcpy(urlLink,relativeurl);
+			strcat(urlLink,PrefetchLinkList[a]);
+			printf("After relativeurl\n");
+			strcpy(PrefetchLinkList[a],urlLink);
+			UrlOK = STATUS_OK;
+		}
+		else
+		{
+			UrlOK = STATUS_ERROR;	
+		}
 
+		printf("UrlOK  %d \n",(int)UrlOK );
+
+		if(UrlOK == STATUS_OK){
 				printf("Prefetch url %d %s\n",a,PrefetchLinkList[a]);
 				//bzero(urlMD5check,sizeof(urlMD5check));
 				//bzero(tempurlMD5,sizeof(tempurlMD5));
@@ -813,7 +835,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 				DEBUG_PRINT("Copy of MD5  value of url  %s\n",tempurlMD5);
 				//check if file is available in Cache 
 				cacheFound =checkCache(tempurlMD5,-1);
-				printf("Cache  status %d => %s\n",(int)cacheFound,urlMD5check);
+				DEBUG_PRINT("Cache  status %d => %s\n",(int)cacheFound,urlMD5check);
 
 
 				if(cacheFound != STATUS_OK){
@@ -891,7 +913,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 							return STATUS_ERROR_REQUEST;
 
 						}
-						printf("Official Name %s",targethost->h_name);
+						DEBUG_PRINT("Official Name %s",targethost->h_name);
 						addr_list = (struct in_addr **)targethost->h_addr_list;
 					    for(i = 0; addr_list[i] != NULL; i++) {
 					        DEBUG_PRINT("%s ", inet_ntoa(*addr_list[i]));
@@ -915,7 +937,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 						
 						DEBUG_PRINT("Temp 1 (2) => %s",temp1);
 
-						printf("\nPath=> %s , PORT => %d",temp1,host->port);
+						DEBUG_PRINT("\nPath=> %s , PORT => %d",temp1,host->port);
 
 
 						ProxyClient.sin_family =AF_INET;
@@ -927,7 +949,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 					    //Connect to remote server
 
 						if ((socketproxyClient= socket(AF_INET , SOCK_STREAM , 0))<0){
-						printf("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
+						DEBUG_PRINT("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
 						perror("Socket --> Exit ");			        
 						//exit(-1); // what needs to be done ?
 						return STATUS_ERROR;
@@ -946,11 +968,11 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 								//clear the buffer
 							    //bzero(requestMessage,sizeof(requestMessage));
 							    bzero(requesttoHost,sizeof(requesttoHost));    		
-							    printf("Before Request formed %s ,%s ",requesttoHost);//,requestMessage);	//
-					    		printf("Method =>%s",host->HttpMethodVaue);
-					    		printf("url =>%s",urltemp);
-					    		printf("version =>%s",host->HttpVersionValue);
-					    		printf("host =>%s",temp1);
+							    DEBUG_PRINT("Before Request formed %s ,%s ",requesttoHost);//,requestMessage);	//
+					    		DEBUG_PRINT("Method =>%s",host->HttpMethodVaue);
+					    		DEBUG_PRINT("url =>%s",urltemp);
+					    		DEBUG_PRINT("version =>%s",host->HttpVersionValue);
+					    		DEBUG_PRINT("host =>%s",temp1);
 					    		// form the reuest depending on url found or not 
 								//if(temp1!=NULL)
 									//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
@@ -961,11 +983,11 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 								//strcat(requesttoHost,'\0');
 								//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
 								//strncpy(requesttoHost,requestMessage,sizeof(requestMessage));
-								printf("Request send to HOST\n\r%s",requesttoHost);	//
+								DEBUG_PRINT("Request send to HOST\n\r%s",requesttoHost);	//
 
 
 						    	if(write(socketproxyClient,requesttoHost,sizeof(requesttoHost))<0){//check if request is send continously 
-						    		perror("Write Target HOst Socket");
+						    		DEBUG_PRINT("Write Target HOst Socket");
 						    		return STATUS_ERROR_SOCKET_NOT_WRITTEN;
 						    	}
 						    	else{
@@ -978,7 +1000,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 											//return STATUS_ERROR_FILE_NOT_FOUND;
 										}
 										
-										printf("File opened%s\n", urlMD5check);
+										DEBUG_PRINT("File opened%s\n", urlMD5check);
 							    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
 							    		do
 										{
@@ -1304,7 +1326,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 								}
 								*/						
 								//call prefetch routine 
-							//ProxyPrefetchService(urlMD5check,host);
+							ProxyPrefetchService(urlMD5check,host,temp1);
 						}
 					
 
