@@ -351,7 +351,7 @@ int splitString(char *splitip,char *delimiter,char (*splitop)[MAXCOLSIZE],int ma
 	DEBUG_PRINT("value split %d",sizeofip);
 	
 	if(splitip==NULL || delimiter==NULL){
-		printf("Error\n");
+		DEBUG_PRINT("Error\n");
 		return -1;//return -1 on error 
 	}
 	
@@ -570,7 +570,7 @@ strcpy(fileCheck,inputUrlMD5);
 //check file is present in array or directory 
 	if((cacheFiledesc=open(fileCheck,O_RDONLY))<0){
 		fileFoundCache = STATUS_ERROR_FILE_NOT_FOUND;
-		perror("Cache File");
+		//perror("Cache File");
 		DEBUG_PRINT("File not  found in  %d",(int)fileFoundCache);
 		return fileFoundCache;
 	 }else
@@ -607,17 +607,17 @@ strcpy(fileCheck,inputUrlMD5);
 		current_time =*localtime(&now);
 		//if(current_time!=NULL){
 				
-			//printf("Readable Time (current)=> %s",asctime(current_time));	
+			//DEBUG_PRINT("Readable Time (current)=> %s",asctime(current_time));	
 			stat(fileCheck, &file_stat);
 			time_file = *localtime(&(file_stat.st_mtime));
 			
 			time1 = mktime(&current_time);
 			time2 = mktime(&time_file);
-			//printf("time 1 %lf\n",(double)(&time1) );
-			//printf("time 2 %lf\n",(double)(&time2) );
+			//DEBUG_PRINT("time 1 %lf\n",(double)(&time1) );
+			//DEBUG_PRINT("time 2 %lf\n",(double)(&time2) );
 			diff_t= difftime(time1,time2);
 			
-			//printf("Readable Time from file => %s",asctime(time_file));
+			//DEBUG_PRINT("Readable Time from file => %s",asctime(time_file));
 			DEBUG_PRINT("New Diff in time %f secs\n",diff_t);
 			//if(diff_t > MAX_TIME_OUT ){	
 			if(diff_t > timeoutval){
@@ -715,7 +715,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
     //char * temp1;
     int a =0;
 
-	printf("prefetch called");
+	DEBUG_PRINT("prefetch called");
     messagefromServer = &tempmessagefromServer;
 
     //DEBUG_PRINT("Input Message =>%s \n Client to Proxy SocKet=>%d \n",requestMessage  ,socketproxyClient);
@@ -750,10 +750,10 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 		 //while((fgets(line,100,orgFileptr))!=NULL && feof(orgFileptr) ){					
 		while((fgets(line,sizeof(line),orgFileptr))!=EOF){					
 			//if(read = getline(&line, &len, orgFileptr)!=NULL){
-				//printf("i %s\n",line);
+				//DEBUG_PRINT("i %s\n",line);
 				rethref = strstr(line,"<a href=");
 				if (rethref){
-					//printf("Found ret %s",rethref);	
+					//DEBUG_PRINT("Found ret %s",rethref);	
 
 					bzero(tempurl,sizeof(tempurl));
 					strcpy(tempurl,rethref);
@@ -766,7 +766,7 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
     				//strcpy(PrefetchLinkList[presentFetchCount],p);
     				sscanf(tempurl,"<a href=\"%s.html\"",&PrefetchLinkList[presentFetchCount]);
     				temp1=strtok(PrefetchLinkList[presentFetchCount],"\"");
-    				printf("\nFound tempurl %s",PrefetchLinkList[presentFetchCount++]);	
+    				printf("\nPrefetch url from main page%s",PrefetchLinkList[presentFetchCount++]);	
 					//DEBUG_PRINT("\nFound temp1 %s",temp1);	
 					
 				}	
@@ -789,11 +789,11 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 	 }
 
 
-	printf("Total URL FOUND %d\n",presentFetchCount);
+	DEBUG_PRINT("Total URL FOUND %d\n",presentFetchCount);
 	// End of Extract 
 	//List the urls found 
 	for (a=1;a<presentFetchCount;a++){
-		printf("\nFound %d tempurl %s",a,PrefetchLinkList[a]);	
+		DEBUG_PRINT("\nFound %d tempurl %s",a,PrefetchLinkList[a]);	
 	}
 
 	a=0;
@@ -804,13 +804,13 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 		if (!strncmp(PrefetchLinkList[a],"http:",5)){	
 			UrlOK = STATUS_OK;
 		}
-		else if (!strncmp(PrefetchLinkList[a],"/",1))
+		else if (!strncmp(PrefetchLinkList[a],"/~",2))
 		{
 			//append the host initially 
-			strcpy(urlLink,relativeurl);
+			strncpy(urlLink,relativeurl,sizeof(relativeurl));
 			strcat(urlLink,PrefetchLinkList[a]);
-			printf("After relativeurl\n");
-			strcpy(PrefetchLinkList[a],urlLink);
+			DEBUG_PRINT("After relativeurl\n");
+			strncpy(PrefetchLinkList[a],urlLink,sizeof(urlLink));
 			UrlOK = STATUS_OK;
 		}
 		else
@@ -818,10 +818,10 @@ ErrorCodes_TypeDef ProxyPrefetchService(char * OriginalFile,struct HttpFormats_s
 			UrlOK = STATUS_ERROR;	
 		}
 
-		printf("UrlOK  %d \n",(int)UrlOK );
+		DEBUG_PRINT("UrlOK  %d \n",(int)UrlOK );
 
 		if(UrlOK == STATUS_OK){
-				printf("Prefetch url %d %s\n",a,PrefetchLinkList[a]);
+				DEBUG_PRINT("Prefetch url %d %s\n",a,PrefetchLinkList[a]);
 				//bzero(urlMD5check,sizeof(urlMD5check));
 				//bzero(tempurlMD5,sizeof(tempurlMD5));
 				cacheFound=STATUS_ERROR_SOCKET_NOT_WRITTEN;// other than cache found 	
@@ -1074,6 +1074,8 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	ErrorCodes_TypeDef connect_sucess;
 	ssize_t nbytes=0;
 	char messagefromServer[MAXBUFSIZE];
+	//char * messagefromServer;
+	char tempmessage[MAXBUFSIZE];
 	char requesttoHost[MAXBUFSIZE];
 	char responsefromHost[MAXBUFSIZE];
 	struct hostent* targethost;
@@ -1096,9 +1098,12 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 	char tempurlMD5[MAXMD5LENGTH];
 	int cacheWritedesc;
 
+    //messagefromServer = &tempmessage;
+
+
 
 	if ((socketproxyClient= socket(AF_INET , SOCK_STREAM , 0))<0){
-	    printf("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
+	    DEBUG_PRINT("Issue in Creating Socket,Try Again !! %d\n",socketproxyClient);
 	    perror("Socket --> Exit ");			        
 		//exit(-1); // what needs to be done ?
 		return STATUS_ERROR;
@@ -1261,11 +1266,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 						//sprintf(requesttoHost,"GET /%s %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp1,temp,temp2);
 					sprintf(requesttoHost,"%s %s %s\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n",host->HttpMethodVaue,urltemp,host->HttpVersionValue,temp1);
 					//else
-					//	sprintf(requesttoHost,"%s\r\nHost: %s\r\nProxy-Connection: keep-alive\r\n\r\n",requestMessage,temp1);
-						//sprintf(requesttoHost,"GET / %s\r\nHost: %s\r\nConnection: close\r\n\r\n",temp,temp2);
-					//strcat(requesttoHost,'\0');
-					//DEBUG_PRINT("Request formation\n\r%s",requestMessage);	//
-					//strncpy(requesttoHost,requestMessage,sizeof(requestMessage));
+					
 					DEBUG_PRINT("Request send to HOST\n\r%s",requesttoHost);	//
 
 
@@ -1283,7 +1284,7 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 								//return STATUS_ERROR_FILE_NOT_FOUND;
 							}
 							
-							printf("File opened%s\n", urlMD5check);
+							DEBUG_PRINT("File opened%s\n", urlMD5check);
 				    		//bzero((char*)responsefromHost,sizeof(responsefromHost));
 				    		do
 							{
@@ -1295,36 +1296,16 @@ ErrorCodes_TypeDef ProxyClientService(char requestMessage[],char *responseMessag
 									//fwrite(messagefromServer,MAXPACKSIZE,50,cacheWrite);
 									write(cacheWritedesc,messagefromServer,sizeof(messagefromServer));
 									
-									//strcpy(urlcheck,urlMD5check); 
-									//sem_post(&sem_prefetch);
-
-									//strcat(responsefromHost,messagefromServer);
-									//DEBUG_PRINT("Message from Target host %s",messagefromServer);	
+									
 									
 								}
 
 							}while(nbytes>0);
 
 
-							//DEBUG_PRINT("Complete message from Target Hosts  \n\r%s",responsefromHost);
 							
-							//if(responsefromHost!=NULL){
-							//	memcpy(responseMessage,responsefromHost,sizeof(responsefromHost));
-							//}
 							close(cacheWritedesc);
-							//if(cacheWrite){
-							//	free(cacheWrite);											
-							//}
-			    
-						    	/*
-								if(nbytes = recv(socketproxyClient,messagefromServer,sizeof(messagefromServer),0)<0){//recv from server and check for non-blocking 
-									fprintf(stderr,"non-blocking socket not returning data  List %s\n",strerror(errno) );
-								}
-								else
-								{
-									DEBUG_PRINT("Message to client %s ",messagefromServer);
-								}
-								*/						
+													
 								//call prefetch routine 
 							ProxyPrefetchService(urlMD5check,host,temp1);
 						}
@@ -1376,10 +1357,12 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 			DEBUG_PRINT("GET Method implemented");
 			method =HTTP_GET;
 		}
+		/*
 		else if (!strcmp(request[HttpMethod],"POST")){//if first element 
 			DEBUG_PRINT("POST Method implemented");
 			method =HTTP_POST;
-		}	
+		}
+		*/	
 		else{
 			error_response("400 Bad Request",request[HttpMethod],thread_sock,request[HttpVersion],"Invalid Method");
 			DEBUG_PRINT("Method isn't implemented");
@@ -1413,7 +1396,7 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 		ret = strstr(request[HttpURL],"\\");//
 		if(ret)
 		{	
-			printf("BAD URL");			
+			DEBUG_PRINT("BAD URL");			
 			error_response("400 Bad Request",request[HttpURL],thread_sock,request[HttpVersion],"Invalid HTTP-URL");
 			return STATUS_ERROR;
 		}
@@ -1436,202 +1419,6 @@ ErrorCodes_TypeDef checkRequest(char (*request)[MAXCOLSIZE],int thread_sock,char
 		
 		
 		//Concate root path with requested URL 
-		
-
-		/*
-		//check if no path/default location 		
-		if(!(strncmp(request[HttpURL], "/\0", 2)))  {
-			//strcat(path,"/index.html");			
-			strcat(path,"/");			
-			strcat(path,config.directory_index);			
-		}
-		else{
-			//Concate root path with requested URL 
-			strcat(path,request[HttpURL]);			
-		}
-		DEBUG_PRINT("Path after request%s   ",path);
-
-
-		memset(sendData,0,sizeof(sendData));
-		memset(response_message,0,strlen(response_message));
-		//size of file 
-		if ((filedesc=open(path,O_RDONLY))<1){//if File  not found 
-			
-			error_response("404 Not Found",request[HttpURL],thread_sock,request[HttpVersion],"URL Does not Exist");
-			perror("File not Found");
-			return STATUS_ERROR;
-		}
-		
-		else
-		{
-			//send OK status 
-			memset(response_message,0,strlen(response_message));
-			
-			//send success message
-			
-			strcpy(response_message,"HTTP/1.1 200 OK\r\n");
-			//printf("%s",response_message);
-			write(thread_sock,response_message,strlen(response_message));		
-			//DEBUG_PRINT("%s",response_message);
-
-			//for content type 
-			memset(response_message,0,strlen(response_message));
-			strcpy(copypath,path);
-			p=strtok(copypath,".");
-			if(p!=NULL)
-			{
-				//strncpy(file_type[0],p,strlen(p));
-				//DEBUG_PRINT("1st %s",file_type[0]);
-				//p=strtok(NULL,".");
-				//strncpy(file_type[1],p,strlen(p));
-				//DEBUG_PRINT("type %s",file_type[1]);
-				DEBUG_PRINT("path searched%s",path);
-				lastptr = strrchr(path,'.');
-				if(lastptr){
-					DEBUG_PRINT("last occurence %s",lastptr);
-					*lastptr++;
-					
-					strcpy(file_type,lastptr);
-					DEBUG_PRINT	("format %s \n",file_type);
-				}
-				else
-				{
-					
-					perror("File not Found");
-					DEBUG_PRINT("Could not find '.' ");error_response("404 Not Found",request[HttpURL],thread_sock,request[HttpVersion],"URL Does not Exist");
-					//return -1;
-				}
-				//Search for Content type and assign Type supported 
-				contentimpl = 0;//Initial value not found 
-				for (i=0;i<maxtypesupported;i++)
-				{
-					if (!strcmp(file_type,&config.content_type[i][1])){
-						//printf("Found Content Match");
-						sprintf(response_message,"%s\r\n",config.response_type[i]);
-						contentimpl = 1;
-						break;
-					}
-					else{
-						contentimpl = 0;
-					}
-
-				}
-
-				//DEBUG_PRINT("%d %s %s",i,config.content_type[i],config.response_type[i]);
-				if (!contentimpl)
-				{
-					error_response("501 Not Implemented",file_type,thread_sock,request[HttpVersion],"File type Not Implemented");
-					printf("File type is not implemented");
-					return STATUS_ERROR;
-				}
-
-				
-	
-				//printf("%s",response_message);
-				write(thread_sock,response_message,strlen(response_message));			
-
-			}
-			else
-			{
-				DEBUG_PRINT("Unable to split...exit ");
-				error_response("500 Internal Server Error",request[HttpURL],thread_sock,request[HttpVersion],"Invalid File Name");
-				return STATUS_ERROR;
-			}
-			
-			
-			//for content lenght 
-			file_stats = malloc(sizeof(struct stat));
-			memset(file_stats,0,sizeof(file_stats));
-			stat(path, file_stats);
-			filesize = file_stats->st_size;
-			//DEBUG_PRINT("File size %d",filesize);
-			memset(response_message,0,strlen(response_message));
-			sprintf(response_message,"Content-Length: %d\r\n\n",(int)filesize);					
-			//printf("%s",response_message);
-			write(thread_sock,response_message,strlen(response_message));		
-
-			DEBUG_PRINT("%s",response_message);
-
-			bzero(file_stats,sizeof(bzero));
-			free(file_stats);
-						
-			DEBUG_PRINT("Reading and send File data");
-			
-			memset(sendData,0,sizeof(sendData));
-			//send data 
-			//Incoporate addition for POST Method
-			if (method == HTTP_POST){
-				//printf("POST  changes incoporated \n");
-				//printf("Data from Client%s\n",request_data);
-				
-				ret = strstr(request_data,"user");
-				//user=Chinmay&comp=Shah
-				if(ret){
-					DEBUG_PRINT("String %s",ret);
-					//find the user 
-
-					if ((user=malloc(sizeof(user)*MAXCOMMANDSIZE))){	
-						user_attr=0;
-						if((user_attr=splitString(ret,"=",user,4))<0)
-						{
-							DEBUG_PRINT("Could not split");	
-						}
-						else
-						{
-							DEBUG_PRINT("User first part %s:%s:%s",user[1],user[2],user[3]);
-							j=0;
-							while(user[2][j]!='&' && j<MAXCOMMANDSIZE){
-								comp[j]=user[2][j];
-								j++;
-							}
-							if(j>MAXCOMMANDSIZE)
-							{
-								printf("Cant Find &");
-							}
-							else
-							{	
-								sprintf(response_message,"<html>\n\r<head>\r\n<h1>POST Data for test</h1>\n\r</head>\n\r<body>\n\r<pre>\n\r %s %s </pre>\n\r</body>\n</html>\n\r",comp,user[3]);
-								send(thread_sock,response_message,sizeof(response_message),0);		
-							}	
-							
-						}	
-						free(user);				
-						
-					}
-					else
-					{
-						DEBUG_PRINT("Unable to alloacte");
-					}
-				}	
-				else
-				{
-					DEBUG_PRINT("Didnt find user");
-				}	
-				
-				//return 0;
-			}
-			else{
-				DEBUG_PRINT("No changes incoporated ");
-			}
-
-			//printf("\nPath%s\n",path );
-			while((send_bytes=read(filedesc,sendData,MAXBUFSIZE))>0){
-				DEBUG_PRINT("%s\n",sendData); 
-				total_size += send_bytes;
-				send(thread_sock,sendData,send_bytes,0);		
-				memset(sendData,0,sizeof(sendData));
-			}
-			DEBUG_PRINT("Total size read %d",(int)total_size);
-			memset(response_message,0,strlen(response_message));
-			strcpy(response_message,"\nCompleted\r\n");
-			//printf("%s",response_message);
-			//write(thread_sock,response_message,strlen(response_message));		
-
-			close(filedesc);//close the file opened 
-		}
-		//
-		*/
-
 
 		return STATUS_OK;
 }
@@ -1661,7 +1448,7 @@ void *client_connections(void *client_sock_id)
 		// Recieve the message from client  and reurn back to client 
 		if((read_bytes =recv(thread_sock,message_client,MAXPACKSIZE,0))>0){
 
-			//printf("request from client %s\n",message_client );
+			//DEBUG_PRINT("request from client %s\n",message_client );
 			memcpy(message_bkp,message_client,sizeof(message_client));//backup of orginal message 
 			DEBUG_PRINT("Message length%d\n",(int)strlen(message_client) );
 			DEBUG_PRINT("Message %s\n",message_client);
@@ -1675,7 +1462,7 @@ void *client_connections(void *client_sock_id)
 				{
 					DEBUG_PRINT("Error in split\n");
 
-					//printf("%s\n", );
+					//DEBUG_PRINT("%s\n", );
 					bzero(message_client,sizeof(message_client));	
 					bzero(split_attr,sizeof(split_attr));	
 					return NULL;
@@ -1693,7 +1480,7 @@ void *client_connections(void *client_sock_id)
 					DEBUG_PRINT("In split of input %d %s\n",i,split_attr[i]);
 				}
 				
-				//printf("in client connections%s\n",message_bkp);
+				//DEBUG_PRINT("in client connections%s\n",message_bkp);
 				if(checkRequest(split_attr,thread_sock,message_bkp,host)!=STATUS_OK){
 					DEBUG_PRINT("Request unsuccessful \n");
 				}
@@ -1702,7 +1489,7 @@ void *client_connections(void *client_sock_id)
 					//Proxy 
 					//Processing the inout from client  to 
 					//if(messagetoClient=(char*)calloc(MAXBUFSIZE,sizeof(char))<0){
-					//	printf("Cant alloacte memory ");
+					//	DEBUG_PRINT("Cant alloacte memory ");
 					//}
 					//else{
 						// check 
@@ -1712,7 +1499,7 @@ void *client_connections(void *client_sock_id)
 							//write(thread_sock,messagetoClient,strlen(messagetoClient));
 						}
 						else{
-							printf("Issue request to Server");
+							DEBUG_PRINT("Issue request to Server");
 						}	
 						
 					//}
@@ -1735,7 +1522,7 @@ void *client_connections(void *client_sock_id)
 			else 
 			{
 					error_response("500 Internal Server Error",split_attr[HttpURL],thread_sock,split_attr[HttpVersion],"Invalid File Name");
-					perror("alloacte 2d pointer");
+					perror("alloacte  pointer");
 					exit(-1);
 			}		
 			
@@ -1771,32 +1558,11 @@ int main (int argc, char * argv[] ){
 
 		//Input of filename for config 
 	if (argc != 3){
-		printf ("USAGE:  <Port> <Timeout(seconds)>\n");
+		printf("USAGE:  <Port> <Timeout(seconds)>\n");
 		exit(1);
 	}
 	DEBUG_PRINT("In main");
-	/*
-		//Configuration file before starting the Web Server 
-		DEBUG_PRINT("Reading the config file ");
-		maxtypesupported=config_parse("ws.conf");
 
-		// Print the Configuration 
-		DEBUG_PRINT("Confiuration Obtain");
-		
-		//Check for file support available or not 
-		if (!maxtypesupported)
-		{
-			printf("Zero File Type Supported !! Check Config File\n");
-			exit(-1);
-		}
-		else
-		{	DEBUG_PRINT("Type Supported");
-			for (i=0;i<maxtypesupported;i++)
-			{
-				DEBUG_PRINT("%d %s %s",i,config.content_type[i],config.response_type[i]);
-			}
-		}
-	*/	
 	/******************
 	  This code populates the sockaddr_in struct with
 	  the information about our socket
@@ -1809,54 +1575,12 @@ int main (int argc, char * argv[] ){
 
 	bzero(&maxtimeout,sizeof(maxtimeout));               
 	timeoutval = atol(argv[2]);        
-	printf("timeout %s",argv[2]); 
-	printf("time in seconds %f",timeoutval);  
-	/*
-	//Check if Port is present or not 
-	if (strcmp(config.listen_port,"")){
-		DEBUG_PRINT("Port %s",config.listen_port);
-		if(atoi(config.listen_port) <=1024){
-			printf("\nPort Number less than 1024!! Check configuration file\n");
-			exit(-1);
-		}
-		else
-		{
-			server.sin_port = htons(atoi(config.listen_port));        		//htons() sets the port # to network byte order
-		}	
-		
-	}
-	else
-	{	
-		printf("\nPort Number not found !! Check configuration file");
-		exit(-1);
-	}
-	*/
+	DEBUG_PRINT("timeout %s",argv[2]); 
+	DEBUG_PRINT("\n time in seconds %f",timeoutval);  
+
 	server.sin_addr.s_addr = INADDR_ANY;           //supplies the IP address of the local machine
 	remote_length = sizeof(struct sockaddr_in);    //size of client packet 
 
-	/*
-	//check if document root directory present 
-	if (strcmp(config.document_root,"")){
-		DEBUG_PRINT("Root %s",config.document_root);
-	}
-	else
-	{	
-		printf("\nRoot Directory not found !! Check configuration file\n");
-		exit(-1);
-	}
-
-	if (strcmp(config.directory_index,"")){
-		DEBUG_PRINT("Index %s",config.directory_index);
-	}
-	else
-	{	
-		printf("Default File not found !! Check configuration file\n");
-		//exit(-1);
-	}
-
-	//Keepalive for pipelining 
-	DEBUG_PRINT("KeepaliveTime %s",config.keep_alive_time);
-	*/
 	//Causes the system to create a generic socket of type TCP (strean)
 	if ((server_sock =socket(AF_INET,SOCK_STREAM,0)) < 0){
 		DEBUG_PRINT("unable to create tcp socket");
@@ -1871,7 +1595,7 @@ int main (int argc, char * argv[] ){
 	DEBUG_PRINT("Before Bind accepted\n");  
 	if (bind(server_sock, (struct sockaddr *)&server, sizeof(server)) < 0){
 		close(server_sock);
-		printf("unable to bind socket\n");
+		DEBUG_PRINT("unable to bind socket\n");
 		exit(-1);
 	}
 	//
@@ -1919,7 +1643,7 @@ int main (int argc, char * argv[] ){
 		//as it does  have to wait for it to join thread ,
 		//does not allow multiple connections 
 		if(pthread_join(client_thread, NULL) == 0)
-		 printf("Client Thread done\n");
+		 DEBUG_PRINT("Client Thread done\n");
 		else
 		 perror("Client Thread");
 		 */
